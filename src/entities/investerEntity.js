@@ -22,9 +22,6 @@ module.exports = new EntitySchema({
     profession: {
       type: "varchar",
       nullable: true,
-    },
-    source: {
-      type: "varchar",
-    },
+    }
   },
 });

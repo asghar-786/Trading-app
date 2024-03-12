@@ -24,7 +24,7 @@ const startServer = async () => {
 
     await dataSource.initialize();
     logger.info("Database connection has been established");
-    
+
     logger.info(`Server is listening on ${process.env.PORT || 4000}`);
   } catch (error) {
     logger.error(error.message);

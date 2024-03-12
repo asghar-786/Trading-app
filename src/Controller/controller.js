@@ -1,26 +1,24 @@
-const { registerInvester} = require("../service/service");
+const {
+  registerInvester,
+  createInvesterAfterVerification,
+  loginInvester,
+} = require("../service/service");
 const { logger } = require("../../logger");
 const { ValidateUser, loginValidation } = require("../schema/investerSchema");
+const { redisClient } = require("../../infrastructure/redis");
 
 const signup = async (request, reply) => {
-  logger.info(['src > controllers > signup > ', request.body]);
+  logger.info(["src > controllers > signup > ", request.body]);
   try {
     const { error } = ValidateUser.validate(request.body);
     if (error) {
       return reply.code(400).send({ error: error.details[0].message });
     }
-
-    const userData = await registerInvester(request.body);
-    logger.info('User registered successfully', userData);
-    console.log("USer DATA",userData)
-
+    const InvesterData = await registerInvester(request.body);
+    console.log("Invester Data", InvesterData);
     reply.code(201).send({
-      message: 'User registered successfully',
+      message: InvesterData,
     });
-
-
- 
-
   } catch (error) {
     console.log(error);
     logger.error(["Error registering user:", error.message]);
@@ -30,6 +28,49 @@ const signup = async (request, reply) => {
   }
 };
 
+const verifyEmail = async (request, reply) => {
+  try {
+    const { email, verificationToken } = request.query;
+    const storedToken = await redisClient.get(email);
+    if (storedToken === verificationToken) {
+      await redisClient.del(email);
+      let newInvester = await createInvesterAfterVerification(
+        verificationToken
+      );
+     return "Email Verified Successfully"
+    } else {
+      reply.status(400).send("Link Expire");
+    }
+  } catch (error) {
+    logger.error(["Error verifying email:", error.message]);
+    reply.status(500).send(error.message);
+  }
+};
 
+const login = async (request, reply) => {
+  logger.info(["src > controllers > login > ", request.body]);
+  try {
+    const Login = {
+      email: request.body.email,
+      password: request.body.password,
+    };
+    console.log("Login Data", Login);
+    const { error } = loginValidation.validate(Login);
+    if (error) {
+      return reply.code(400).send({ error: error.message });
+    }
 
-module.exports={signup}
+    const LoginInvester = await loginInvester(Login);
+    console.log("Invester Login", LoginInvester);
+
+    reply.code(201).send({
+      message: LoginInvester,
+    });
+  } catch (error) {
+    console.log(error);
+    logger.error(["Error Login Invester:", error.message]);
+    reply.code(500).send({ error: "An error occurred while Login Invester." });
+  }
+};
+
+module.exports = { signup, verifyEmail, login };
