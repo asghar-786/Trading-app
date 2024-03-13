@@ -3,6 +3,8 @@ const { logger } = require("../../logger");
 const { findInvester } = require("../Repositories/repository");
 const { redisClient } = require("../../infrastructure/redis");
 const jwt = require("jsonwebtoken");
+const { GoogleClient } = require("../authentication/google");
+
 const {
   sendVerificationEmail,
   passwordVerify,
@@ -11,7 +13,7 @@ const bcrypt = require("bcrypt");
 
 const registerInvester = async (userInfo) => {
   try {
-    const { email, password,name } = userInfo;
+    const { email, password, name } = userInfo;
     const existingUser = await findInvester({ where: { email } });
     if (existingUser) {
       return "Invester Already Exist With This Email";
@@ -20,7 +22,7 @@ const registerInvester = async (userInfo) => {
         expiresIn: "1h",
       });
       await redisClient.set(email, verificationToken);
-      await sendVerificationEmail(email, verificationToken,name);
+      await sendVerificationEmail(email, verificationToken, name);
       if (sendVerificationEmail) {
         return "Verification email sent successfully";
       }
@@ -65,9 +67,41 @@ const loginInvester = async (Login) => {
     }
   } catch (error) {}
 };
+const googleClient = async (code) => {
+  try {
+    const { tokens } = await GoogleClient.getToken(code);
+    const ticket = await GoogleClient.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    console.log("Payload ",payload)
+    const { name, email, email_verified,at_hash } = payload;
+
+    if (!email_verified) {
+      throw new Error("Email is not verified.");
+    }    let user = await findInvester({where:{email}});
+
+    if (user) {
+      return `Hello ${name}, welcome back to Tixsee!`;
+    }    user = await investerSignUp({
+      name: name,
+      email: email,
+      profession: "google",
+      password:at_hash
+    });
+
+    return user;
+  } catch (error) {
+    console.error("Error in googleClient:", error.message);
+    throw new Error("An error occurred while processing Google login.");
+  }
+};
+
 
 module.exports = {
   registerInvester,
   createInvesterAfterVerification,
   loginInvester,
+  googleClient,
 };

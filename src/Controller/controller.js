@@ -2,10 +2,12 @@ const {
   registerInvester,
   createInvesterAfterVerification,
   loginInvester,
+  googleClient,
 } = require("../service/service");
 const { logger } = require("../../logger");
 const { ValidateUser, loginValidation } = require("../schema/investerSchema");
 const { redisClient } = require("../../infrastructure/redis");
+const { GoogleClient } = require("../authentication/google");
 
 const signup = async (request, reply) => {
   logger.info(["src > controllers > signup > ", request.body]);
@@ -37,7 +39,7 @@ const verifyEmail = async (request, reply) => {
       let newInvester = await createInvesterAfterVerification(
         verificationToken
       );
-     return "Email Verified Successfully"
+      return "Email Verified Successfully";
     } else {
       reply.status(400).send("Link Expire");
     }
@@ -72,5 +74,34 @@ const login = async (request, reply) => {
     reply.code(500).send({ error: "An error occurred while Login Invester." });
   }
 };
+const googleLogin = async (request, reply) => {
+  const Url = GoogleClient.generateAuthUrl({
+    access_type: "offline",
+    scope: ["profile", "email"],
+  });
+  console.log("Url ", Url);
+  // Assuming 'reply' object supports redirection
+  reply.redirect(Url);
+};
 
-module.exports = { signup, verifyEmail, login };
+const googleLoginCallBack = async (request, reply) => {
+  try {
+    const code = request.query.code;
+    const userInfo = await googleClient(code); // Implement this function
+    console.log("User Info In Controller ............", userInfo);
+    if (userInfo) {
+      reply.send(userInfo);
+    }
+  } catch (error) {
+    reply
+      .status(500)
+      .send({ error: "An error occurred while fetching user information." });
+  }
+};
+module.exports = {
+  signup,
+  verifyEmail,
+  login,
+  googleLogin,
+  googleLoginCallBack,
+};
